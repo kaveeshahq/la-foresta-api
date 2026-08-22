@@ -1,5 +1,7 @@
 package com.laforesta.api.auth.service;
 
+import com.laforesta.api.auth.dto.LoginRequest;
+import com.laforesta.api.auth.dto.LoginResponse;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
 import com.laforesta.api.user.entity.Role;
@@ -24,6 +26,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -65,6 +68,63 @@ public class AuthService {
                 savedUser.getFullName(),
                 savedUser.getEmail(),
                 savedUser.isEmailVerified()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+
+        String email = request.email()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
+        User user = userRepository
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Invalid email or password"
+                ));
+
+        if (user.getPasswordHash() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid email or password"
+            );
+        }
+
+        if (!passwordEncoder.matches(
+                request.password(),
+                user.getPasswordHash()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid email or password"
+            );
+        }
+
+        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "This account is not active"
+            );
+        }
+
+        String accessToken =
+                jwtService.generateAccessToken(user);
+
+        var roles = user.getRoles()
+                .stream()
+                .map(role -> role.getName().name())
+                .toList();
+
+        return new LoginResponse(
+                accessToken,
+                "Bearer",
+                900,
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                roles
         );
     }
 }

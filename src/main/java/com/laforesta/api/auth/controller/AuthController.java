@@ -1,5 +1,7 @@
 package com.laforesta.api.auth.controller;
 
+import com.laforesta.api.auth.dto.LoginRequest;
+import com.laforesta.api.auth.dto.LoginResponse;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
 import com.laforesta.api.auth.service.AuthService;
@@ -26,5 +28,15 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+
+        LoginResponse response = authService.login(request);
+
+        return ResponseEntity.ok(response);
     }
 }
