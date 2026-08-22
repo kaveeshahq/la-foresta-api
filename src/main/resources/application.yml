@@ -27,6 +27,6 @@ management:
       exposure:
         include: health,info
 
-  app:
-    google:
-      client-id: ${GOOGLE_CLIENT_ID}
+app:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}

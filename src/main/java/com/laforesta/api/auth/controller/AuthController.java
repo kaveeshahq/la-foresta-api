@@ -2,6 +2,8 @@ package com.laforesta.api.auth.controller;
 
 import com.laforesta.api.auth.dto.AuthTokensResponse;
 import com.laforesta.api.auth.dto.LoginRequest;
+import com.laforesta.api.auth.dto.GoogleLoginRequest;
+import com.laforesta.api.auth.service.GoogleAuthService;
 import com.laforesta.api.auth.dto.RefreshTokenRequest;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final GoogleAuthService googleAuthService;
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(
@@ -63,5 +66,18 @@ public class AuthController {
         return ResponseEntity
                 .noContent()
                 .build();
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthTokensResponse> googleLogin(
+            @Valid @RequestBody GoogleLoginRequest request
+    ) {
+
+        AuthTokensResponse response =
+                googleAuthService.loginWithGoogle(
+                        request.credential()
+                );
+
+        return ResponseEntity.ok(response);
     }
 }
