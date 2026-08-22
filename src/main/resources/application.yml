@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: laforesta-api
+
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:55432/laforesta
+    username: laforesta_user
+    password: laforesta_password
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

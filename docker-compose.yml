@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: laforesta-postgres
+
+    environment:
+      POSTGRES_DB: laforesta
+      POSTGRES_USER: laforesta_user
+      POSTGRES_PASSWORD: laforesta_password
+
+    ports:
+      - "55432:5432"
+
+    volumes:
+      - laforesta_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laforesta_user -d laforesta"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  laforesta_postgres_data:
