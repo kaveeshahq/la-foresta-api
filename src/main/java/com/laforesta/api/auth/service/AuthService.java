@@ -1,7 +1,8 @@
 package com.laforesta.api.auth.service;
 
+import com.laforesta.api.auth.dto.AuthTokensResponse;
 import com.laforesta.api.auth.dto.LoginRequest;
-import com.laforesta.api.auth.dto.LoginResponse;
+import com.laforesta.api.auth.dto.RefreshTokenRequest;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
 import com.laforesta.api.user.entity.Role;
@@ -24,6 +25,7 @@ import java.util.Locale;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenService refreshTokenService;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -71,8 +73,8 @@ public class AuthService {
         );
     }
 
-    @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request) {
+    @Transactional
+    public AuthTokensResponse login(LoginRequest request) {
 
         String email = request.email()
                 .trim()
@@ -112,19 +114,46 @@ public class AuthService {
         String accessToken =
                 jwtService.generateAccessToken(user);
 
-        var roles = user.getRoles()
-                .stream()
-                .map(role -> role.getName().name())
-                .toList();
+        String refreshToken =
+                refreshTokenService.createRefreshToken(user);
 
-        return new LoginResponse(
+        return new AuthTokensResponse(
                 accessToken,
+                refreshToken,
                 "Bearer",
-                900,
-                user.getId(),
-                user.getFullName(),
-                user.getEmail(),
-                roles
+                900
+        );
+    }
+
+    @Transactional
+    public AuthTokensResponse refresh(
+            RefreshTokenRequest request
+    ) {
+
+        User user = refreshTokenService
+                .validateAndRotate(request.refreshToken());
+
+        String newAccessToken =
+                jwtService.generateAccessToken(user);
+
+        String newRefreshToken =
+                refreshTokenService.createRefreshToken(user);
+
+        return new AuthTokensResponse(
+                newAccessToken,
+                newRefreshToken,
+                "Bearer",
+                900
+        );
+    }
+
+    @Transactional
+    public void logout(
+            RefreshTokenRequest request
+    ) {
+
+        refreshTokenService.revoke(
+                request.refreshToken()
         );
     }
 }

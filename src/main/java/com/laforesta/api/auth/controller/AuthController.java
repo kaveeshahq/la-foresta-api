@@ -1,7 +1,8 @@
 package com.laforesta.api.auth.controller;
 
+import com.laforesta.api.auth.dto.AuthTokensResponse;
 import com.laforesta.api.auth.dto.LoginRequest;
-import com.laforesta.api.auth.dto.LoginResponse;
+import com.laforesta.api.auth.dto.RefreshTokenRequest;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
 import com.laforesta.api.auth.service.AuthService;
@@ -23,7 +24,8 @@ public class AuthController {
             @Valid @RequestBody RegisterRequest request
     ) {
 
-        RegisterResponse response = authService.register(request);
+        RegisterResponse response =
+                authService.register(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -31,12 +33,35 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(
+    public ResponseEntity<AuthTokensResponse> login(
             @Valid @RequestBody LoginRequest request
     ) {
 
-        LoginResponse response = authService.login(request);
+        AuthTokensResponse response =
+                authService.login(request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthTokensResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                authService.refresh(request)
+        );
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+
+        authService.logout(request);
+
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 }
