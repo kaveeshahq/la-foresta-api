@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.laforesta.api.auth.dto.VerifyEmailRequest;
+import com.laforesta.api.auth.service.EmailVerificationService;
+import com.laforesta.api.auth.dto.ResendVerificationRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,6 +24,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final GoogleAuthService googleAuthService;
+    private final EmailVerificationService emailVerificationService;
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(
@@ -79,5 +83,29 @@ public class AuthController {
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request
+    ) {
+
+        emailVerificationService.verify(
+                request.token()
+        );
+
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest request
+    ) {
+
+        authService.resendVerification(request);
+
+        return ResponseEntity.noContent().build();
     }
 }

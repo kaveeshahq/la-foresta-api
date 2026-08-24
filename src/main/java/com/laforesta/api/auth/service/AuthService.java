@@ -17,7 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
+import com.laforesta.api.auth.dto.ResendVerificationRequest;
 import java.util.Locale;
 
 @Service
@@ -29,6 +29,9 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EmailVerificationService emailVerificationService;
+
+
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -64,6 +67,13 @@ public class AuthService {
         user.getRoles().add(customerRole);
 
         User savedUser = userRepository.save(user);
+        String verificationToken =
+                emailVerificationService
+                        .createVerificationToken(savedUser);
+
+        System.out.println(
+                "EMAIL VERIFICATION TOKEN: " + verificationToken
+        );
 
         return new RegisterResponse(
                 savedUser.getId(),
@@ -122,6 +132,32 @@ public class AuthService {
                 refreshToken,
                 "Bearer",
                 900
+        );
+    }
+
+    @Transactional
+    public void resendVerification(
+            ResendVerificationRequest request
+    ) {
+
+        String email = request.email()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
+        User user = userRepository
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Account not found"
+                ));
+
+        String verificationToken =
+                emailVerificationService
+                        .resendVerificationToken(user);
+
+        System.out.println(
+                "RESENT EMAIL VERIFICATION TOKEN: "
+                        + verificationToken
         );
     }
 
