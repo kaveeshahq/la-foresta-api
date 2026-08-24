@@ -1,10 +1,14 @@
 package com.laforesta.api.auth.service;
 
 import com.laforesta.api.auth.dto.AuthTokensResponse;
+import com.laforesta.api.auth.dto.ForgotPasswordRequest;
 import com.laforesta.api.auth.dto.LoginRequest;
 import com.laforesta.api.auth.dto.RefreshTokenRequest;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
+import com.laforesta.api.auth.dto.ResendVerificationRequest;
+import com.laforesta.api.auth.dto.ResetPasswordRequest;
+import com.laforesta.api.notification.service.EmailService;
 import com.laforesta.api.user.entity.Role;
 import com.laforesta.api.user.entity.User;
 import com.laforesta.api.user.model.AccountStatus;
@@ -17,9 +21,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.laforesta.api.auth.dto.ResendVerificationRequest;
+
 import java.util.Locale;
-import com.laforesta.api.notification.service.EmailService;
 
 @Service
 @RequiredArgsConstructor
@@ -31,9 +34,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
     private final EmailService emailService;
-
-
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -69,6 +71,7 @@ public class AuthService {
         user.getRoles().add(customerRole);
 
         User savedUser = userRepository.save(user);
+
         String verificationToken =
                 emailVerificationService
                         .createVerificationToken(savedUser);
@@ -164,6 +167,54 @@ public class AuthService {
                 user.getFullName(),
                 verificationToken
         );
+    }
+
+    @Transactional
+    public void forgotPassword(
+            ForgotPasswordRequest request
+    ) {
+
+        String email = request.email()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
+        userRepository
+                .findByEmailIgnoreCase(email)
+                .ifPresent(user -> {
+
+                    if (user.getPasswordHash() == null) {
+                        return;
+                    }
+
+                    String resetToken =
+                            passwordResetService
+                                    .createResetToken(user);
+
+                    emailService.sendPasswordReset(
+                            user.getEmail(),
+                            user.getFullName(),
+                            resetToken
+                    );
+                });
+    }
+
+    @Transactional
+    public void resetPassword(
+            ResetPasswordRequest request
+    ) {
+
+        User user =
+                passwordResetService
+                        .validateAndConsume(request.token());
+
+        user.setPasswordHash(
+                passwordEncoder.encode(
+                        request.newPassword()
+                )
+        );
+
+        refreshTokenService
+                .revokeAllForUser(user);
     }
 
     @Transactional

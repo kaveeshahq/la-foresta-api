@@ -7,4 +7,11 @@ public interface EmailService {
             String fullName,
             String verificationToken
     );
+
+    void sendPasswordReset(
+            String to,
+            String fullName,
+            String resetToken
+    );
+
 }

@@ -86,6 +86,20 @@ public class RefreshTokenService {
                 });
     }
 
+    @Transactional
+    public void revokeAllForUser(User user) {
+
+        var activeTokens =
+                refreshTokenRepository
+                        .findAllByUserAndRevokedAtIsNull(user);
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        activeTokens.forEach(token ->
+                token.setRevokedAt(now)
+        );
+    }
+
     private String generateSecureToken() {
 
         byte[] bytes = new byte[64];

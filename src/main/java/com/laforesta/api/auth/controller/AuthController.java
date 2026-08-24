@@ -1,21 +1,23 @@
 package com.laforesta.api.auth.controller;
 
 import com.laforesta.api.auth.dto.AuthTokensResponse;
-import com.laforesta.api.auth.dto.LoginRequest;
+import com.laforesta.api.auth.dto.ForgotPasswordRequest;
 import com.laforesta.api.auth.dto.GoogleLoginRequest;
-import com.laforesta.api.auth.service.GoogleAuthService;
+import com.laforesta.api.auth.dto.LoginRequest;
 import com.laforesta.api.auth.dto.RefreshTokenRequest;
 import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
+import com.laforesta.api.auth.dto.ResendVerificationRequest;
+import com.laforesta.api.auth.dto.ResetPasswordRequest;
+import com.laforesta.api.auth.dto.VerifyEmailRequest;
 import com.laforesta.api.auth.service.AuthService;
+import com.laforesta.api.auth.service.EmailVerificationService;
+import com.laforesta.api.auth.service.GoogleAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.laforesta.api.auth.dto.VerifyEmailRequest;
-import com.laforesta.api.auth.service.EmailVerificationService;
-import com.laforesta.api.auth.dto.ResendVerificationRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -106,6 +108,32 @@ public class AuthController {
 
         authService.resendVerification(request);
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+
+        authService.forgotPassword(request);
+
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+
+        authService.resetPassword(request);
+
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 }

@@ -63,4 +63,50 @@ public class GoogleSmtpEmailService implements EmailService {
 
         mailSender.send(message);
     }
+
+    @Override
+    public void sendPasswordReset(
+            String to,
+            String fullName,
+            String resetToken
+    ) {
+
+        String resetUrl =
+                frontendUrl
+                        + "/reset-password?token="
+                        + resetToken;
+
+        SimpleMailMessage message =
+                new SimpleMailMessage();
+
+        message.setFrom(fromAddress);
+        message.setTo(to);
+
+        message.setSubject(
+                "Reset your La Foresta password"
+        );
+
+        message.setText(
+                """
+                Hi %s,
+
+                We received a request to reset your La Foresta password.
+
+                Use the link below to choose a new password:
+
+                %s
+
+                This link expires in 30 minutes.
+
+                If you did not request a password reset, you can ignore this email.
+
+                La Foresta
+                """.formatted(
+                        fullName,
+                        resetUrl
+                )
+        );
+
+        mailSender.send(message);
+    }
 }
