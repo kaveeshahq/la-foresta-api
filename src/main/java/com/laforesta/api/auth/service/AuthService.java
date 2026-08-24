@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.laforesta.api.auth.dto.ResendVerificationRequest;
 import java.util.Locale;
+import com.laforesta.api.notification.service.EmailService;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailVerificationService emailVerificationService;
+    private final EmailService emailService;
 
 
 
@@ -71,8 +73,10 @@ public class AuthService {
                 emailVerificationService
                         .createVerificationToken(savedUser);
 
-        System.out.println(
-                "EMAIL VERIFICATION TOKEN: " + verificationToken
+        emailService.sendEmailVerification(
+                savedUser.getEmail(),
+                savedUser.getFullName(),
+                verificationToken
         );
 
         return new RegisterResponse(
@@ -155,9 +159,10 @@ public class AuthService {
                 emailVerificationService
                         .resendVerificationToken(user);
 
-        System.out.println(
-                "RESENT EMAIL VERIFICATION TOKEN: "
-                        + verificationToken
+        emailService.sendEmailVerification(
+                user.getEmail(),
+                user.getFullName(),
+                verificationToken
         );
     }
 
