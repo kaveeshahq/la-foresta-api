@@ -31,6 +31,12 @@ spring:
             enable: true
             required: true
 
+  web:
+    error:
+      include-stacktrace: never
+      include-message: always
+      include-binding-errors: always
+
 server:
   port: 8080
 
