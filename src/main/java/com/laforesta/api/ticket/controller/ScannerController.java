@@ -2,6 +2,8 @@ package com.laforesta.api.ticket.controller;
 
 import com.laforesta.api.ticket.dto.CheckInRequest;
 import com.laforesta.api.ticket.dto.CheckInResponse;
+import com.laforesta.api.ticket.dto.ScannerTicketLookupResponse;
+import com.laforesta.api.ticket.service.EventCheckInReportService;
 import com.laforesta.api.ticket.service.ScannerCheckInService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class ScannerController {
 
     private final ScannerCheckInService scannerCheckInService;
+    private final EventCheckInReportService eventCheckInReportService;
 
     @PostMapping("/check-in")
     @PreAuthorize(
@@ -37,6 +40,20 @@ public class ScannerController {
                         scannerUserId,
                         request.qrToken()
                 )
+        );
+    }
+
+    @GetMapping("/tickets/{qrToken}")
+    @PreAuthorize(
+            "hasAnyRole('SCANNER_STAFF','ADMIN','SUPER_ADMIN')"
+    )
+    public ResponseEntity<ScannerTicketLookupResponse> lookupTicket(
+            @PathVariable String qrToken
+    ) {
+
+        return ResponseEntity.ok(
+                eventCheckInReportService
+                        .lookupTicket(qrToken)
         );
     }
 }

@@ -34,6 +34,10 @@ public interface TicketRepository
             UUID orderId
     );
 
+    long countByTicketTypeEventId(
+            UUID eventId
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT t
