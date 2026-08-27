@@ -12,6 +12,10 @@ import java.util.UUID;
 public interface OrderRepository
         extends JpaRepository<Order, UUID> {
 
+    Optional<Order> findByGuestAccessTokenHash(
+            String guestAccessTokenHash
+    );
+
     boolean existsByReservation(
             TicketReservation reservation
     );

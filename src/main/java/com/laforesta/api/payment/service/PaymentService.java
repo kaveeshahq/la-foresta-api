@@ -17,8 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +28,9 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final OrderPaymentService orderPaymentService;
 
+    /*
+     * Registered-user payment initiation
+     */
     @Transactional
     public PaymentResponse initiateMockPayment(
             UUID userId,
@@ -35,7 +38,10 @@ public class PaymentService {
     ) {
 
         Order order = orderRepository
-                .findByIdAndUserId(orderId, userId)
+                .findByIdAndUserId(
+                        orderId,
+                        userId
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -43,7 +49,56 @@ public class PaymentService {
                         )
                 );
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+        return initiatePaymentInternal(order);
+    }
+
+    /*
+     * Guest payment initiation
+     */
+    @Transactional
+    public PaymentResponse initiateGuestMockPayment(
+            UUID orderId
+    ) {
+
+        Order order = orderRepository
+                .findById(orderId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Order not found"
+                        )
+                );
+
+        if (order.getUser() != null) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Order is not a guest order"
+            );
+        }
+
+        if (order.getGuestEmail() == null
+                || order.getGuestEmail().isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Guest order does not contain customer details"
+            );
+        }
+
+        return initiatePaymentInternal(order);
+    }
+
+    /*
+     * Shared payment-initiation logic
+     */
+    private PaymentResponse initiatePaymentInternal(
+            Order order
+    ) {
+
+        if (order.getStatus()
+                != OrderStatus.PENDING_PAYMENT) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Order is not pending payment"
@@ -71,10 +126,11 @@ public class PaymentService {
 
         paymentRepository
                 .findFirstByOrderIdAndStatusOrderByCreatedAtDesc(
-                        orderId,
+                        order.getId(),
                         PaymentStatus.PENDING
                 )
                 .ifPresent(payment -> {
+
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
                             "A pending payment already exists for this order"
@@ -85,13 +141,27 @@ public class PaymentService {
                 new PaymentTransaction();
 
         payment.setOrder(order);
-        payment.setProvider(PaymentProvider.MOCK);
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setAmount(order.getTotalAmount());
-        payment.setCurrency(order.getCurrency());
+
+        payment.setProvider(
+                PaymentProvider.MOCK
+        );
+
+        payment.setStatus(
+                PaymentStatus.PENDING
+        );
+
+        payment.setAmount(
+                order.getTotalAmount()
+        );
+
+        payment.setCurrency(
+                order.getCurrency()
+        );
 
         PaymentTransaction saved =
-                paymentRepository.save(payment);
+                paymentRepository.save(
+                        payment
+                );
 
         return toResponse(saved);
     }
@@ -119,7 +189,8 @@ public class PaymentService {
             );
         }
 
-        Order order = payment.getOrder();
+        Order order =
+                payment.getOrder();
 
         if (!order.getReservation()
                 .getExpiresAt()
@@ -136,7 +207,9 @@ public class PaymentService {
         }
 
         orderPaymentService
-                .confirmPayment(order.getId());
+                .confirmPayment(
+                        order.getId()
+                );
 
         payment.setStatus(
                 PaymentStatus.SUCCESS
@@ -174,7 +247,9 @@ public class PaymentService {
 
         orderPaymentService
                 .failPayment(
-                        payment.getOrder().getId()
+                        payment
+                                .getOrder()
+                                .getId()
                 );
 
         payment.setStatus(
@@ -197,10 +272,38 @@ public class PaymentService {
         PaymentTransaction payment =
                 getPayment(paymentId);
 
-        if (!payment.getOrder()
-                .getUser()
+        Order order =
+                payment.getOrder();
+
+        if (order.getUser() == null
+                || !order.getUser()
                 .getId()
                 .equals(userId)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Payment not found"
+            );
+        }
+
+        return toResponse(payment);
+    }
+
+    /*
+     * Guest payment lookup
+     */
+    @Transactional(readOnly = true)
+    public PaymentResponse getGuestPayment(
+            UUID paymentId
+    ) {
+
+        PaymentTransaction payment =
+                getPayment(paymentId);
+
+        Order order =
+                payment.getOrder();
+
+        if (order.getUser() != null) {
 
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
@@ -218,7 +321,10 @@ public class PaymentService {
     ) {
 
         Order order = orderRepository
-                .findByIdAndUserId(orderId, userId)
+                .findByIdAndUserId(
+                        orderId,
+                        userId
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -255,7 +361,8 @@ public class PaymentService {
 
         return new PaymentResponse(
                 payment.getId(),
-                payment.getOrder().getId(),
+                payment.getOrder()
+                        .getId(),
                 payment.getProvider(),
                 payment.getStatus(),
                 payment.getProviderReference(),

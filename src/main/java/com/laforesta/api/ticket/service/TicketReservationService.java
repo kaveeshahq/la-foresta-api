@@ -38,6 +38,9 @@ public class TicketReservationService {
     private final TicketTypeRepository ticketTypeRepository;
     private final UserRepository userRepository;
 
+    /*
+     * Registered-user reservation
+     */
     @Transactional
     public ReservationResponse createReservation(
             UUID userId,
@@ -53,17 +56,68 @@ public class TicketReservationService {
                         )
                 );
 
-        validateDuplicateTicketTypes(request);
+        return createReservationInternal(
+                user,
+                null,
+                null,
+                request
+        );
+    }
 
-        OffsetDateTime now = OffsetDateTime.now();
+    /*
+     * Guest reservation
+     */
+    @Transactional
+    public ReservationResponse createGuestReservation(
+            String guestEmail,
+            String guestName,
+            CreateReservationRequest request
+    ) {
+
+        validateGuestDetails(
+                guestEmail,
+                guestName
+        );
+
+        return createReservationInternal(
+                null,
+                guestEmail.trim().toLowerCase(),
+                guestName.trim(),
+                request
+        );
+    }
+
+    /*
+     * Shared reservation creation logic.
+     *
+     * Both registered and guest checkout use exactly
+     * the same inventory-locking and pricing logic.
+     */
+    private ReservationResponse createReservationInternal(
+            User user,
+            String guestEmail,
+            String guestName,
+            CreateReservationRequest request
+    ) {
+
+        validateDuplicateTicketTypes(
+                request
+        );
+
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         TicketReservation reservation =
                 new TicketReservation();
 
         reservation.setUser(user);
+        reservation.setGuestEmail(guestEmail);
+        reservation.setGuestName(guestName);
+
         reservation.setStatus(
                 ReservationStatus.ACTIVE
         );
+
         reservation.setExpiresAt(
                 now.plusMinutes(
                         RESERVATION_MINUTES
@@ -76,9 +130,11 @@ public class TicketReservationService {
         BigDecimal totalAmount =
                 BigDecimal.ZERO;
 
-        String reservationCurrency = null;
+        String reservationCurrency =
+                null;
 
-        UUID eventId = null;
+        UUID eventId =
+                null;
 
         for (ReservationItemRequest requestedItem
                 : request.items()) {
@@ -86,7 +142,8 @@ public class TicketReservationService {
             TicketType ticketType =
                     ticketTypeRepository
                             .findByIdForUpdate(
-                                    requestedItem.ticketTypeId()
+                                    requestedItem
+                                            .ticketTypeId()
                             )
                             .orElseThrow(() ->
                                     new ResponseStatusException(
@@ -101,12 +158,20 @@ public class TicketReservationService {
                     now
             );
 
+            /*
+             * A reservation cannot mix events.
+             */
             if (eventId == null) {
+
                 eventId =
-                        ticketType.getEvent().getId();
+                        ticketType
+                                .getEvent()
+                                .getId();
 
             } else if (!eventId.equals(
-                    ticketType.getEvent().getId()
+                    ticketType
+                            .getEvent()
+                            .getId()
             )) {
 
                 throw new ResponseStatusException(
@@ -115,7 +180,11 @@ public class TicketReservationService {
                 );
             }
 
+            /*
+             * A reservation cannot mix currencies.
+             */
             if (reservationCurrency == null) {
+
                 reservationCurrency =
                         ticketType.getCurrency();
 
@@ -132,29 +201,40 @@ public class TicketReservationService {
             TicketReservationItem item =
                     new TicketReservationItem();
 
-            item.setTicketType(ticketType);
+            item.setTicketType(
+                    ticketType
+            );
+
             item.setQuantity(
                     requestedItem.quantity()
             );
+
             item.setUnitPrice(
                     ticketType.getPrice()
             );
+
             item.setCurrency(
                     ticketType.getCurrency()
             );
 
-            reservation.addItem(item);
+            reservation.addItem(
+                    item
+            );
 
             BigDecimal lineTotal =
-                    ticketType.getPrice()
+                    ticketType
+                            .getPrice()
                             .multiply(
                                     BigDecimal.valueOf(
-                                            requestedItem.quantity()
+                                            requestedItem
+                                                    .quantity()
                                     )
                             );
 
             totalAmount =
-                    totalAmount.add(lineTotal);
+                    totalAmount.add(
+                            lineTotal
+                    );
 
             responseItems.add(
                     new ReservationItemResponse(
@@ -183,6 +263,46 @@ public class TicketReservationService {
         );
     }
 
+    private void validateGuestDetails(
+            String guestEmail,
+            String guestName
+    ) {
+
+        if (guestEmail == null
+                || guestEmail.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Guest email is required"
+            );
+        }
+
+        if (guestName == null
+                || guestName.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Guest name is required"
+            );
+        }
+
+        if (guestEmail.length() > 255) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Guest email is too long"
+            );
+        }
+
+        if (guestName.length() > 150) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Guest name is too long"
+            );
+        }
+    }
+
     private void validateTicketTypeAvailability(
             TicketType ticketType,
             int requestedQuantity,
@@ -190,6 +310,7 @@ public class TicketReservationService {
     ) {
 
         if (!ticketType.isActive()) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Ticket type is not active"

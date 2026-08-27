@@ -27,17 +27,41 @@ public class TicketReservation {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(
+            name = "guest_email",
+            length = 255
+    )
+    private String guestEmail;
+
+    @Column(
+            name = "guest_name",
+            length = 150
+    )
+    private String guestName;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(
+            nullable = false,
+            length = 30
+    )
     private ReservationStatus status;
 
-    @Column(name = "expires_at", nullable = false)
+    @Column(
+            name = "expires_at",
+            nullable = false
+    )
     private OffsetDateTime expiresAt;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(
+            name = "created_at",
+            nullable = false
+    )
     private OffsetDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(
+            name = "updated_at",
+            nullable = false
+    )
     private OffsetDateTime updatedAt;
 
     @OneToMany(
@@ -51,7 +75,8 @@ public class TicketReservation {
     @PrePersist
     public void onCreate() {
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         this.createdAt = now;
         this.updatedAt = now;
@@ -59,7 +84,9 @@ public class TicketReservation {
 
     @PreUpdate
     public void onUpdate() {
-        this.updatedAt = OffsetDateTime.now();
+
+        this.updatedAt =
+                OffsetDateTime.now();
     }
 
     public void addItem(

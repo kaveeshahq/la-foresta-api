@@ -1,6 +1,7 @@
 package com.laforesta.api.order.service;
 
 import com.laforesta.api.order.dto.CreateOrderRequest;
+import com.laforesta.api.order.dto.GuestOrderResponse;
 import com.laforesta.api.order.dto.OrderItemResponse;
 import com.laforesta.api.order.dto.OrderResponse;
 import com.laforesta.api.order.entity.Order;
@@ -41,6 +42,11 @@ public class OrderService {
     private final PromoCodeService promoCodeService;
     private final PromoCodeRepository promoCodeRepository;
 
+    private final GuestAccessTokenService guestAccessTokenService;
+
+    /*
+     * Registered-user checkout
+     */
     @Transactional
     public OrderResponse createOrder(
             UUID userId,
@@ -57,14 +63,9 @@ public class OrderService {
                 );
 
         TicketReservation reservation =
-                reservationRepository
-                        .findById(request.reservationId())
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Reservation not found"
-                                )
-                        );
+                getReservation(
+                        request.reservationId()
+                );
 
         if (reservation.getUser() == null
                 || !reservation.getUser()
@@ -77,46 +78,143 @@ public class OrderService {
             );
         }
 
-        if (reservation.getStatus()
-                != ReservationStatus.ACTIVE) {
+        return createOrderInternal(
+                user,
+                reservation,
+                request,
+                false,
+                null
+        );
+    }
+
+    /*
+     * Guest checkout
+     */
+    @Transactional
+    public GuestOrderResponse createGuestOrder(
+            CreateOrderRequest request
+    ) {
+
+        TicketReservation reservation =
+                getReservation(
+                        request.reservationId()
+                );
+
+        /*
+         * Guest endpoint must never create an order
+         * from an authenticated user's reservation.
+         */
+        if (reservation.getUser() != null) {
 
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Reservation is not active"
+                    HttpStatus.FORBIDDEN,
+                    "Reservation is not a guest reservation"
             );
         }
 
-        if (!reservation.getExpiresAt()
-                .isAfter(OffsetDateTime.now())) {
+        if (reservation.getGuestEmail() == null
+                || reservation.getGuestEmail().isBlank()
+                || reservation.getGuestName() == null
+                || reservation.getGuestName().isBlank()) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Reservation has expired"
+                    "Guest reservation does not contain customer details"
             );
         }
 
-        if (orderRepository.existsByReservation(
+        /*
+         * Guest promo support will be implemented
+         * separately because per-user limits currently
+         * depend on a registered user ID.
+         */
+        if (request.promoCode() != null
+                && !request.promoCode().isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Promo codes are not yet supported for guest checkout"
+            );
+        }
+
+        /*
+         * Generate a strong random token.
+         *
+         * Only its SHA-256 hash is stored in the database.
+         * The raw token is returned once to the guest.
+         */
+        String guestAccessToken =
+                guestAccessTokenService
+                        .generateToken();
+
+        String guestAccessTokenHash =
+                guestAccessTokenService
+                        .hashToken(
+                                guestAccessToken
+                        );
+
+        OrderResponse orderResponse =
+                createOrderInternal(
+                        null,
+                        reservation,
+                        request,
+                        true,
+                        guestAccessTokenHash
+                );
+
+        return new GuestOrderResponse(
+                orderResponse,
+                guestAccessToken
+        );
+    }
+
+    /*
+     * Shared order creation logic.
+     */
+    private OrderResponse createOrderInternal(
+            User user,
+            TicketReservation reservation,
+            CreateOrderRequest request,
+            boolean guestCheckout,
+            String guestAccessTokenHash
+    ) {
+
+        validateReservation(
                 reservation
-        )) {
+        );
 
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "An order already exists for this reservation"
+        Order order =
+                new Order();
+
+        if (guestCheckout) {
+
+            order.setUser(null);
+
+            order.setGuestEmail(
+                    reservation.getGuestEmail()
             );
+
+            order.setGuestName(
+                    reservation.getGuestName()
+            );
+
+            order.setGuestAccessTokenHash(
+                    guestAccessTokenHash
+            );
+
+        } else {
+
+            order.setUser(user);
+
+            order.setGuestEmail(null);
+            order.setGuestName(null);
+            order.setGuestAccessTokenHash(null);
         }
 
-        if (reservation.getItems().isEmpty()) {
+        order.setReservation(
+                reservation
+        );
 
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Reservation contains no items"
-            );
-        }
-
-        Order order = new Order();
-
-        order.setUser(user);
-        order.setReservation(reservation);
         order.setStatus(
                 OrderStatus.PENDING_PAYMENT
         );
@@ -124,9 +222,11 @@ public class OrderService {
         BigDecimal subtotalAmount =
                 BigDecimal.ZERO;
 
-        String orderCurrency = null;
+        String orderCurrency =
+                null;
 
-        UUID eventId = null;
+        UUID eventId =
+                null;
 
         List<OrderItemResponse> responseItems =
                 new ArrayList<>();
@@ -218,10 +318,14 @@ public class OrderService {
                     lineTotal
             );
 
-            order.addItem(orderItem);
+            order.addItem(
+                    orderItem
+            );
 
             subtotalAmount =
-                    subtotalAmount.add(lineTotal);
+                    subtotalAmount.add(
+                            lineTotal
+                    );
 
             responseItems.add(
                     new OrderItemResponse(
@@ -260,18 +364,21 @@ public class OrderService {
                 subtotalAmount;
 
         /*
-         * Optional promo calculation
+         * Promo calculation for registered users.
          */
-        if (request.promoCode() != null
+        if (!guestCheckout
+                && request.promoCode() != null
                 && !request.promoCode().isBlank()) {
 
             PromoCalculationResult promoResult =
-                    promoCodeService.validateAndCalculate(
-                            request.promoCode(),
-                            eventId,
-                            userId,
-                            subtotalAmount
-                    );
+                    promoCodeService
+                            .validateAndCalculate(
+                                    request.promoCode(),
+                                    eventId,
+                                    user.getId(),
+                                    subtotalAmount
+                            );
+
             PromoCode promoCode =
                     promoCodeRepository
                             .findById(
@@ -295,11 +402,6 @@ public class OrderService {
                     promoCode
             );
 
-            /*
-             * Snapshot the code used at checkout.
-             * Later edits to the PromoCode entity will not
-             * change what code appeared on this order.
-             */
             order.setPromoCodeSnapshot(
                     promoResult.code()
             );
@@ -322,12 +424,71 @@ public class OrderService {
         );
 
         Order savedOrder =
-                orderRepository.save(order);
+                orderRepository.save(
+                        order
+                );
 
         return toResponse(
                 savedOrder,
                 responseItems
         );
+    }
+
+    private TicketReservation getReservation(
+            UUID reservationId
+    ) {
+
+        return reservationRepository
+                .findById(reservationId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Reservation not found"
+                        )
+                );
+    }
+
+    private void validateReservation(
+            TicketReservation reservation
+    ) {
+
+        if (reservation.getStatus()
+                != ReservationStatus.ACTIVE) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Reservation is not active"
+            );
+        }
+
+        if (!reservation.getExpiresAt()
+                .isAfter(
+                        OffsetDateTime.now()
+                )) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Reservation has expired"
+            );
+        }
+
+        if (orderRepository.existsByReservation(
+                reservation
+        )) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An order already exists for this reservation"
+            );
+        }
+
+        if (reservation.getItems().isEmpty()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Reservation contains no items"
+            );
+        }
     }
 
     @Transactional(readOnly = true)
@@ -336,17 +497,18 @@ public class OrderService {
             UUID orderId
     ) {
 
-        Order order = orderRepository
-                .findByIdAndUserId(
-                        orderId,
-                        userId
-                )
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Order not found"
+        Order order =
+                orderRepository
+                        .findByIdAndUserId(
+                                orderId,
+                                userId
                         )
-                );
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Order not found"
+                                )
+                        );
 
         List<OrderItemResponse> items =
                 order.getItems()

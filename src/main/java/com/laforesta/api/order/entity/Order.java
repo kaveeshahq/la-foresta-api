@@ -26,12 +26,27 @@ public class Order {
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "user_id",
-            nullable = false
-    )
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
     private User user;
+
+    @Column(
+            name = "guest_email",
+            length = 255
+    )
+    private String guestEmail;
+
+    @Column(
+            name = "guest_name",
+            length = 150
+    )
+    private String guestName;
+
+    @Column(
+            name = "guest_access_token_hash",
+            length = 64
+    )
+    private String guestAccessTokenHash;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
@@ -125,6 +140,7 @@ public class Order {
 
     @PreUpdate
     public void onUpdate() {
+
         this.updatedAt =
                 OffsetDateTime.now();
     }
