@@ -6,8 +6,10 @@ import java.util.UUID;
 
 public record CreateOrderRequest(
 
-        @NotNull(message = "Reservation ID is required")
-        UUID reservationId
+        @NotNull
+        UUID reservationId,
+
+        String promoCode
 
 ) {
 }

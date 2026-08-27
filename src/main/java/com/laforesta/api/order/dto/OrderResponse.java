@@ -12,9 +12,16 @@ public record OrderResponse(
         UUID orderId,
         UUID reservationId,
         OrderStatus status,
+
+        BigDecimal subtotalAmount,
+        BigDecimal discountAmount,
         BigDecimal totalAmount,
+
+        String promoCode,
+
         String currency,
         List<OrderItemResponse> items,
+
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 

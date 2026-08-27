@@ -1,6 +1,7 @@
 package com.laforesta.api.order.entity;
 
 import com.laforesta.api.order.model.OrderStatus;
+import com.laforesta.api.promo.entity.PromoCode;
 import com.laforesta.api.ticket.entity.TicketReservation;
 import com.laforesta.api.user.entity.User;
 import jakarta.persistence.*;
@@ -41,8 +42,27 @@ public class Order {
     private TicketReservation reservation;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(
+            nullable = false,
+            length = 30
+    )
     private OrderStatus status;
+
+    @Column(
+            name = "subtotal_amount",
+            nullable = false,
+            precision = 12,
+            scale = 2
+    )
+    private BigDecimal subtotalAmount;
+
+    @Column(
+            name = "discount_amount",
+            nullable = false,
+            precision = 12,
+            scale = 2
+    )
+    private BigDecimal discountAmount;
 
     @Column(
             name = "total_amount",
@@ -52,13 +72,32 @@ public class Order {
     )
     private BigDecimal totalAmount;
 
-    @Column(nullable = false, length = 3)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promo_code_id")
+    private PromoCode promoCode;
+
+    @Column(
+            name = "promo_code_snapshot",
+            length = 50
+    )
+    private String promoCodeSnapshot;
+
+    @Column(
+            nullable = false,
+            length = 3
+    )
     private String currency;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(
+            name = "created_at",
+            nullable = false
+    )
     private OffsetDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(
+            name = "updated_at",
+            nullable = false
+    )
     private OffsetDateTime updatedAt;
 
     @OneToMany(
@@ -72,18 +111,27 @@ public class Order {
     @PrePersist
     public void onCreate() {
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now =
+                OffsetDateTime.now();
 
         this.createdAt = now;
         this.updatedAt = now;
+
+        if (this.discountAmount == null) {
+            this.discountAmount =
+                    BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
     public void onUpdate() {
-        this.updatedAt = OffsetDateTime.now();
+        this.updatedAt =
+                OffsetDateTime.now();
     }
 
-    public void addItem(OrderItem item) {
+    public void addItem(
+            OrderItem item
+    ) {
 
         items.add(item);
         item.setOrder(this);
