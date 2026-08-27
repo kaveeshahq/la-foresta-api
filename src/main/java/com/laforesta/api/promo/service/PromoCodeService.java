@@ -1,5 +1,7 @@
 package com.laforesta.api.promo.service;
 
+import com.laforesta.api.order.model.OrderStatus;
+import com.laforesta.api.order.repository.OrderRepository;
 import com.laforesta.api.promo.dto.PromoCalculationResult;
 import com.laforesta.api.promo.entity.PromoCode;
 import com.laforesta.api.promo.model.DiscountType;
@@ -23,11 +25,13 @@ public class PromoCodeService {
             new BigDecimal("100");
 
     private final PromoCodeRepository promoCodeRepository;
+    private final OrderRepository orderRepository;
 
     @Transactional(readOnly = true)
     public PromoCalculationResult validateAndCalculate(
             String code,
             UUID eventId,
+            UUID userId,
             BigDecimal subtotalAmount
     ) {
 
@@ -45,6 +49,13 @@ public class PromoCodeService {
             );
         }
 
+        if (userId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "User is required"
+            );
+        }
+
         if (subtotalAmount == null
                 || subtotalAmount.compareTo(BigDecimal.ZERO) <= 0) {
 
@@ -55,7 +66,9 @@ public class PromoCodeService {
         }
 
         PromoCode promoCode = promoCodeRepository
-                .findByCodeIgnoreCase(code.trim())
+                .findByCodeIgnoreCase(
+                        code.trim()
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -66,6 +79,7 @@ public class PromoCodeService {
         validatePromo(
                 promoCode,
                 eventId,
+                userId,
                 subtotalAmount
         );
 
@@ -104,6 +118,7 @@ public class PromoCodeService {
     private void validatePromo(
             PromoCode promoCode,
             UUID eventId,
+            UUID userId,
             BigDecimal subtotalAmount
     ) {
 
@@ -118,7 +133,9 @@ public class PromoCodeService {
                 OffsetDateTime.now();
 
         if (promoCode.getValidFrom() != null
-                && now.isBefore(promoCode.getValidFrom())) {
+                && now.isBefore(
+                promoCode.getValidFrom()
+        )) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -127,7 +144,9 @@ public class PromoCodeService {
         }
 
         if (promoCode.getValidUntil() != null
-                && now.isAfter(promoCode.getValidUntil())) {
+                && now.isAfter(
+                promoCode.getValidUntil()
+        )) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -160,6 +179,67 @@ public class PromoCodeService {
         validateDiscountConfiguration(
                 promoCode
         );
+
+        validateUsageLimit(
+                promoCode
+        );
+
+        validatePerUserLimit(
+                promoCode,
+                userId
+        );
+    }
+
+    private void validateUsageLimit(
+            PromoCode promoCode
+    ) {
+
+        if (promoCode.getUsageLimit() == null) {
+            return;
+        }
+
+        long totalUsage =
+                orderRepository
+                        .countByPromoCodeIdAndStatus(
+                                promoCode.getId(),
+                                OrderStatus.PAID
+                        );
+
+        if (totalUsage >=
+                promoCode.getUsageLimit()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Promo code usage limit has been reached"
+            );
+        }
+    }
+
+    private void validatePerUserLimit(
+            PromoCode promoCode,
+            UUID userId
+    ) {
+
+        if (promoCode.getPerUserLimit() == null) {
+            return;
+        }
+
+        long userUsage =
+                orderRepository
+                        .countByPromoCodeIdAndUserIdAndStatus(
+                                promoCode.getId(),
+                                userId,
+                                OrderStatus.PAID
+                        );
+
+        if (userUsage >=
+                promoCode.getPerUserLimit()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Promo code usage limit for this user has been reached"
+            );
+        }
     }
 
     private void validateDiscountConfiguration(
@@ -170,7 +250,9 @@ public class PromoCodeService {
                 promoCode.getDiscountValue();
 
         if (value == null
-                || value.compareTo(BigDecimal.ZERO) <= 0) {
+                || value.compareTo(
+                BigDecimal.ZERO
+        ) <= 0) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -180,7 +262,9 @@ public class PromoCodeService {
 
         if (promoCode.getDiscountType()
                 == DiscountType.PERCENTAGE
-                && value.compareTo(ONE_HUNDRED) > 0) {
+                && value.compareTo(
+                ONE_HUNDRED
+        ) > 0) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -199,15 +283,16 @@ public class PromoCodeService {
         if (promoCode.getDiscountType()
                 == DiscountType.PERCENTAGE) {
 
-            discount = subtotalAmount
-                    .multiply(
-                            promoCode.getDiscountValue()
-                    )
-                    .divide(
-                            ONE_HUNDRED,
-                            2,
-                            RoundingMode.HALF_UP
-                    );
+            discount =
+                    subtotalAmount
+                            .multiply(
+                                    promoCode.getDiscountValue()
+                            )
+                            .divide(
+                                    ONE_HUNDRED,
+                                    2,
+                                    RoundingMode.HALF_UP
+                            );
 
         } else if (promoCode.getDiscountType()
                 == DiscountType.FIXED_AMOUNT) {
@@ -223,7 +308,6 @@ public class PromoCodeService {
             );
         }
 
-        // A promo must never make the order negative.
         return discount
                 .min(subtotalAmount)
                 .setScale(

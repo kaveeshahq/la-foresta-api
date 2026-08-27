@@ -266,13 +266,12 @@ public class OrderService {
                 && !request.promoCode().isBlank()) {
 
             PromoCalculationResult promoResult =
-                    promoCodeService
-                            .validateAndCalculate(
-                                    request.promoCode(),
-                                    eventId,
-                                    subtotalAmount
-                            );
-
+                    promoCodeService.validateAndCalculate(
+                            request.promoCode(),
+                            eventId,
+                            userId,
+                            subtotalAmount
+                    );
             PromoCode promoCode =
                     promoCodeRepository
                             .findById(

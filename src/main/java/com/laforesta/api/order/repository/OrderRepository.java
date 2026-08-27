@@ -1,6 +1,7 @@
 package com.laforesta.api.order.repository;
 
 import com.laforesta.api.order.entity.Order;
+import com.laforesta.api.order.model.OrderStatus;
 import com.laforesta.api.ticket.entity.TicketReservation;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -21,5 +22,16 @@ public interface OrderRepository
     Optional<Order> findByIdAndUserId(
             UUID orderId,
             UUID userId
+    );
+
+    long countByPromoCodeIdAndStatus(
+            UUID promoCodeId,
+            OrderStatus status
+    );
+
+    long countByPromoCodeIdAndUserIdAndStatus(
+            UUID promoCodeId,
+            UUID userId,
+            OrderStatus status
     );
 }
