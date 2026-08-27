@@ -26,6 +26,10 @@ public interface TicketRepository
             String qrToken
     );
 
+    Optional<Ticket> findByTicketNumberIgnoreCase(
+            String ticketNumber
+    );
+
     boolean existsByTicketNumber(
             String ticketNumber
     );
