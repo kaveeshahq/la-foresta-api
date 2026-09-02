@@ -14,4 +14,9 @@ public interface EmailService {
             String resetToken
     );
 
+    void sendGuestTicketConfirmation(
+            String to,
+            String fullName,
+            String accessToken
+    );
 }

@@ -107,6 +107,12 @@ public class TicketQueryService {
                         .findByGuestAccessTokenHash(
                                 tokenHash
                         )
+                        .or(() ->
+                                orderRepository
+                                        .findByGuestEmailAccessTokenHash(
+                                                tokenHash
+                                        )
+                        )
                         .orElseThrow(() ->
                                 new ResponseStatusException(
                                         HttpStatus.NOT_FOUND,

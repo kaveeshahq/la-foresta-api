@@ -48,6 +48,12 @@ public class Order {
     )
     private String guestAccessTokenHash;
 
+    @Column(
+            name = "guest_email_access_token_hash",
+            length = 64
+    )
+    private String guestEmailAccessTokenHash;
+
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
             name = "reservation_id",

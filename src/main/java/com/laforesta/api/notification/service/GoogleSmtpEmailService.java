@@ -5,10 +5,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 @RequiredArgsConstructor
-public class GoogleSmtpEmailService implements EmailService {
+public class GoogleSmtpEmailService
+        implements EmailService {
 
     private final JavaMailSender mailSender;
 
@@ -26,9 +28,16 @@ public class GoogleSmtpEmailService implements EmailService {
     ) {
 
         String verificationUrl =
-                frontendUrl
-                        + "/verify-email?token="
-                        + verificationToken;
+                UriComponentsBuilder
+                        .fromUriString(frontendUrl)
+                        .path("/verify-email")
+                        .queryParam(
+                                "token",
+                                verificationToken
+                        )
+                        .build()
+                        .encode()
+                        .toUriString();
 
         SimpleMailMessage message =
                 new SimpleMailMessage();
@@ -72,9 +81,16 @@ public class GoogleSmtpEmailService implements EmailService {
     ) {
 
         String resetUrl =
-                frontendUrl
-                        + "/reset-password?token="
-                        + resetToken;
+                UriComponentsBuilder
+                        .fromUriString(frontendUrl)
+                        .path("/reset-password")
+                        .queryParam(
+                                "token",
+                                resetToken
+                        )
+                        .build()
+                        .encode()
+                        .toUriString();
 
         SimpleMailMessage message =
                 new SimpleMailMessage();
@@ -104,6 +120,59 @@ public class GoogleSmtpEmailService implements EmailService {
                 """.formatted(
                         fullName,
                         resetUrl
+                )
+        );
+
+        mailSender.send(message);
+    }
+
+    @Override
+    public void sendGuestTicketConfirmation(
+            String to,
+            String fullName,
+            String accessToken
+    ) {
+
+        String ticketUrl =
+                UriComponentsBuilder
+                        .fromUriString(frontendUrl)
+                        .path("/tickets/guest")
+                        .queryParam(
+                                "token",
+                                accessToken
+                        )
+                        .build()
+                        .encode()
+                        .toUriString();
+
+        SimpleMailMessage message =
+                new SimpleMailMessage();
+
+        message.setFrom(fromAddress);
+        message.setTo(to);
+
+        message.setSubject(
+                "Your La Foresta tickets are ready"
+        );
+
+        message.setText(
+                """
+                Hi %s,
+
+                Your payment was successful and your La Foresta tickets are ready.
+
+                You can access your tickets using the secure link below:
+
+                %s
+
+                Keep this link private. Anyone who has this link may be able to access your tickets.
+
+                We look forward to seeing you at La Foresta.
+
+                La Foresta
+                """.formatted(
+                        fullName,
+                        ticketUrl
                 )
         );
 

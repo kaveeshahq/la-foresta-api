@@ -16,6 +16,10 @@ public interface OrderRepository
             String guestAccessTokenHash
     );
 
+    Optional<Order> findByGuestEmailAccessTokenHash(
+            String guestEmailAccessTokenHash
+    );
+
     boolean existsByReservation(
             TicketReservation reservation
     );

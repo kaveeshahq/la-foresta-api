@@ -1,5 +1,6 @@
 package com.laforesta.api.order.service;
 
+import com.laforesta.api.notification.event.GuestTicketEmailEvent;
 import com.laforesta.api.order.entity.Order;
 import com.laforesta.api.order.model.OrderStatus;
 import com.laforesta.api.order.repository.OrderRepository;
@@ -7,6 +8,7 @@ import com.laforesta.api.ticket.entity.TicketReservation;
 import com.laforesta.api.ticket.model.ReservationStatus;
 import com.laforesta.api.ticket.service.TicketIssuanceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,8 @@ public class OrderPaymentService {
 
     private final OrderRepository orderRepository;
     private final TicketIssuanceService ticketIssuanceService;
+    private final GuestAccessTokenService guestAccessTokenService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void confirmPayment(
@@ -37,11 +41,10 @@ public class OrderPaymentService {
                 );
 
         /*
-         * Idempotency:
-         * If this order is already paid, make sure its tickets
-         * have been issued, then safely return.
+         * Idempotency.
          */
-        if (order.getStatus() == OrderStatus.PAID) {
+        if (order.getStatus()
+                == OrderStatus.PAID) {
 
             ticketIssuanceService
                     .issueTicketsForOrder(order);
@@ -97,6 +100,41 @@ public class OrderPaymentService {
 
         ticketIssuanceService
                 .issueTicketsForOrder(order);
+
+        /*
+         * Guest ticket email.
+         *
+         * Generate this only during the first successful
+         * payment confirmation.
+         */
+        if (order.getUser() == null
+                && order.getGuestEmail() != null
+                && !order.getGuestEmail().isBlank()
+                && order.getGuestEmailAccessTokenHash() == null) {
+
+            String emailAccessToken =
+                    guestAccessTokenService
+                            .generateToken();
+
+            String tokenHash =
+                    guestAccessTokenService
+                            .hashToken(
+                                    emailAccessToken
+                            );
+
+            order.setGuestEmailAccessTokenHash(
+                    tokenHash
+            );
+
+            eventPublisher.publishEvent(
+                    new GuestTicketEmailEvent(
+                            order.getId(),
+                            order.getGuestEmail(),
+                            order.getGuestName(),
+                            emailAccessToken
+                    )
+            );
+        }
     }
 
     @Transactional
@@ -113,10 +151,6 @@ public class OrderPaymentService {
                         )
                 );
 
-        /*
-         * If the order is no longer waiting for payment,
-         * do nothing.
-         */
         if (order.getStatus()
                 != OrderStatus.PENDING_PAYMENT) {
 
