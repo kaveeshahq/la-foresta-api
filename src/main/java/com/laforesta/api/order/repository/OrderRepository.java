@@ -4,7 +4,7 @@ import com.laforesta.api.order.entity.Order;
 import com.laforesta.api.order.model.OrderStatus;
 import com.laforesta.api.ticket.entity.TicketReservation;
 import org.springframework.data.jpa.repository.JpaRepository;
-
+import org.springframework.data.jpa.repository.EntityGraph;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +30,15 @@ public interface OrderRepository
 
     Optional<Order> findByIdAndUserId(
             UUID orderId,
+            UUID userId
+    );
+
+    @EntityGraph(attributePaths = {
+            "reservation",
+            "items",
+            "items.ticketType"
+    })
+    List<Order> findAllByUserIdOrderByCreatedAtDesc(
             UUID userId
     );
 

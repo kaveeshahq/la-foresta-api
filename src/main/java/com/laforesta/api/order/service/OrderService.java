@@ -491,6 +491,26 @@ public class OrderService {
         }
     }
 
+    /*
+     * Registered user's complete order history.
+     */
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getOrders(
+            UUID userId
+    ) {
+
+        return orderRepository
+                .findAllByUserIdOrderByCreatedAtDesc(
+                        userId
+                )
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /*
+     * Registered user's individual order.
+     */
     @Transactional(readOnly = true)
     public OrderResponse getOrder(
             UUID userId,
@@ -509,6 +529,16 @@ public class OrderService {
                                         "Order not found"
                                 )
                         );
+
+        return toResponse(order);
+    }
+
+    /*
+     * Maps a persisted order and its items.
+     */
+    private OrderResponse toResponse(
+            Order order
+    ) {
 
         List<OrderItemResponse> items =
                 order.getItems()

@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -57,6 +58,23 @@ public class OrderController {
                 orderService.getOrder(
                         userId,
                         id
+                )
+        );
+    }
+
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getOrders(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+
+        UUID userId =
+                UUID.fromString(
+                        jwt.getSubject()
+                );
+
+        return ResponseEntity.ok(
+                orderService.getOrders(
+                        userId
                 )
         );
     }
