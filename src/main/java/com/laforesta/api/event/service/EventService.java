@@ -9,14 +9,15 @@ import com.laforesta.api.event.model.EventStatus;
 import com.laforesta.api.event.repository.EventRepository;
 import com.laforesta.api.event.repository.VenueRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -90,8 +91,6 @@ public class EventService {
         return toResponse(savedEvent);
     }
 
-
-
     @Transactional
     public EventResponse updateEvent(
             UUID eventId,
@@ -164,6 +163,21 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
+    public List<EventResponse> getAdminEvents() {
+
+        return eventRepository
+                .findAll(
+                        Sort.by(
+                                Sort.Direction.DESC,
+                                "startsAt"
+                        )
+                )
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<EventResponse> getPublishedEvents() {
 
         return eventRepository
@@ -181,7 +195,9 @@ public class EventService {
     ) {
 
         Event event = eventRepository
-                .findBySlug(slug.trim().toLowerCase())
+                .findBySlug(
+                        slug.trim().toLowerCase()
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -189,7 +205,9 @@ public class EventService {
                         )
                 );
 
-        if (event.getStatus() != EventStatus.PUBLISHED) {
+        if (event.getStatus()
+                != EventStatus.PUBLISHED) {
+
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "Event not found"
@@ -213,21 +231,27 @@ public class EventService {
                         )
                 );
 
-        if (event.getStatus() == EventStatus.CANCELLED) {
+        if (event.getStatus()
+                == EventStatus.CANCELLED) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Cancelled events cannot be published"
             );
         }
 
-        if (event.getStatus() == EventStatus.COMPLETED) {
+        if (event.getStatus()
+                == EventStatus.COMPLETED) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Completed events cannot be published"
             );
         }
 
-        if (event.getStatus() == EventStatus.PUBLISHED) {
+        if (event.getStatus()
+                == EventStatus.PUBLISHED) {
+
             return toResponse(event);
         }
 
@@ -316,6 +340,4 @@ public class EventService {
                 ? null
                 : trimmed;
     }
-
-
 }

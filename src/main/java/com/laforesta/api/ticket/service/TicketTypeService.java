@@ -30,14 +30,7 @@ public class TicketTypeService {
             CreateTicketTypeRequest request
     ) {
 
-        Event event = eventRepository
-                .findById(eventId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Event not found"
-                        )
-                );
+        Event event = findEvent(eventId);
 
         String name = request.name().trim();
 
@@ -69,7 +62,9 @@ public class TicketTypeService {
                 trimToNull(request.description())
         );
 
-        ticketType.setPrice(request.price());
+        ticketType.setPrice(
+                request.price()
+        );
 
         ticketType.setCurrency(
                 request.currency()
@@ -102,18 +97,27 @@ public class TicketTypeService {
     }
 
     @Transactional(readOnly = true)
+    public List<TicketTypeResponse> getAdminTicketTypes(
+            UUID eventId
+    ) {
+
+        Event event = findEvent(eventId);
+
+        return ticketTypeRepository
+                .findAllByEventOrderByPriceAsc(
+                        event
+                )
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<TicketTypeResponse> getPublicTicketTypes(
             UUID eventId
     ) {
 
-        Event event = eventRepository
-                .findById(eventId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Event not found"
-                        )
-                );
+        Event event = findEvent(eventId);
 
         if (event.getStatus()
                 != EventStatus.PUBLISHED) {
@@ -133,6 +137,20 @@ public class TicketTypeService {
                 .toList();
     }
 
+    private Event findEvent(
+            UUID eventId
+    ) {
+
+        return eventRepository
+                .findById(eventId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Event not found"
+                        )
+                );
+    }
+
     private void validateSalesWindow(
             java.time.OffsetDateTime salesStartAt,
             java.time.OffsetDateTime salesEndAt,
@@ -150,7 +168,9 @@ public class TicketTypeService {
         }
 
         if (salesEndAt != null
-                && salesEndAt.isAfter(event.getStartsAt())) {
+                && salesEndAt.isAfter(
+                event.getStartsAt()
+        )) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -18,6 +19,22 @@ import java.util.UUID;
 public class AdminTicketTypeController {
 
     private final TicketTypeService ticketTypeService;
+
+    @PreAuthorize(
+            "hasAnyRole('EVENT_MANAGER', 'ADMIN', 'SUPER_ADMIN')"
+    )
+    @GetMapping
+    public ResponseEntity<List<TicketTypeResponse>>
+    getTicketTypes(
+            @PathVariable UUID eventId
+    ) {
+
+        return ResponseEntity.ok(
+                ticketTypeService.getAdminTicketTypes(
+                        eventId
+                )
+        );
+    }
 
     @PreAuthorize(
             "hasAnyRole('EVENT_MANAGER', 'ADMIN', 'SUPER_ADMIN')"

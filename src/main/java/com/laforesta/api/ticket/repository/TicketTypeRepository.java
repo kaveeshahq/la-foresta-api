@@ -24,6 +24,10 @@ public interface TicketTypeRepository
             Event event
     );
 
+    List<TicketType> findAllByEventOrderByPriceAsc(
+            Event event
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
            SELECT tt
