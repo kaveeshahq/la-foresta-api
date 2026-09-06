@@ -20,11 +20,19 @@ public interface TicketTypeRepository
             String name
     );
 
-    List<TicketType> findAllByEventAndActiveTrueOrderByPriceAsc(
+    boolean existsByEventAndNameIgnoreCaseAndIdNot(
+            Event event,
+            String name,
+            UUID id
+    );
+
+    List<TicketType>
+    findAllByEventAndActiveTrueOrderByPriceAsc(
             Event event
     );
 
-    List<TicketType> findAllByEventOrderByPriceAsc(
+    List<TicketType>
+    findAllByEventOrderByPriceAsc(
             Event event
     );
 

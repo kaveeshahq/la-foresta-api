@@ -2,6 +2,7 @@ package com.laforesta.api.ticket.controller;
 
 import com.laforesta.api.ticket.dto.CreateTicketTypeRequest;
 import com.laforesta.api.ticket.dto.TicketTypeResponse;
+import com.laforesta.api.ticket.dto.UpdateTicketTypeRequest;
 import com.laforesta.api.ticket.service.TicketTypeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,9 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/admin/events/{eventId}/ticket-types")
+@RequestMapping(
+        "/api/admin/events/{eventId}/ticket-types"
+)
 @RequiredArgsConstructor
 public class AdminTicketTypeController {
 
@@ -30,9 +33,8 @@ public class AdminTicketTypeController {
     ) {
 
         return ResponseEntity.ok(
-                ticketTypeService.getAdminTicketTypes(
-                        eventId
-                )
+                ticketTypeService
+                        .getAdminTicketTypes(eventId)
         );
     }
 
@@ -40,9 +42,12 @@ public class AdminTicketTypeController {
             "hasAnyRole('EVENT_MANAGER', 'ADMIN', 'SUPER_ADMIN')"
     )
     @PostMapping
-    public ResponseEntity<TicketTypeResponse> createTicketType(
+    public ResponseEntity<TicketTypeResponse>
+    createTicketType(
             @PathVariable UUID eventId,
-            @Valid @RequestBody CreateTicketTypeRequest request
+            @Valid
+            @RequestBody
+            CreateTicketTypeRequest request
     ) {
 
         TicketTypeResponse response =
@@ -54,5 +59,27 @@ public class AdminTicketTypeController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @PreAuthorize(
+            "hasAnyRole('EVENT_MANAGER', 'ADMIN', 'SUPER_ADMIN')"
+    )
+    @PutMapping("/{ticketTypeId}")
+    public ResponseEntity<TicketTypeResponse>
+    updateTicketType(
+            @PathVariable UUID eventId,
+            @PathVariable UUID ticketTypeId,
+            @Valid
+            @RequestBody
+            UpdateTicketTypeRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                ticketTypeService.updateTicketType(
+                        eventId,
+                        ticketTypeId,
+                        request
+                )
+        );
     }
 }

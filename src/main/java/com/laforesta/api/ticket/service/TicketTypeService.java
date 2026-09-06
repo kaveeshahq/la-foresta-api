@@ -5,7 +5,10 @@ import com.laforesta.api.event.model.EventStatus;
 import com.laforesta.api.event.repository.EventRepository;
 import com.laforesta.api.ticket.dto.CreateTicketTypeRequest;
 import com.laforesta.api.ticket.dto.TicketTypeResponse;
+import com.laforesta.api.ticket.dto.UpdateTicketTypeRequest;
 import com.laforesta.api.ticket.entity.TicketType;
+import com.laforesta.api.ticket.model.ReservationStatus;
+import com.laforesta.api.ticket.repository.TicketReservationItemRepository;
 import com.laforesta.api.ticket.repository.TicketTypeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -23,6 +27,9 @@ public class TicketTypeService {
 
     private final TicketTypeRepository ticketTypeRepository;
     private final EventRepository eventRepository;
+
+    private final TicketReservationItemRepository
+            reservationItemRepository;
 
     @Transactional
     public TicketTypeResponse createTicketType(
@@ -96,6 +103,100 @@ public class TicketTypeService {
         return toResponse(savedTicketType);
     }
 
+    @Transactional
+    public TicketTypeResponse updateTicketType(
+            UUID eventId,
+            UUID ticketTypeId,
+            UpdateTicketTypeRequest request
+    ) {
+
+        Event event = findEvent(eventId);
+
+        TicketType ticketType =
+                ticketTypeRepository
+                        .findByIdForUpdate(ticketTypeId)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Ticket type not found"
+                                )
+                        );
+
+        if (!ticketType.getEvent()
+                .getId()
+                .equals(eventId)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Ticket type not found"
+            );
+        }
+
+        String name = request.name().trim();
+
+        if (ticketTypeRepository
+                .existsByEventAndNameIgnoreCaseAndIdNot(
+                        event,
+                        name,
+                        ticketTypeId
+                )) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A ticket type with this name already exists for the event"
+            );
+        }
+
+        validateSalesWindow(
+                request.salesStartAt(),
+                request.salesEndAt(),
+                event
+        );
+
+        validateCapacityReduction(
+                ticketTypeId,
+                request.capacity()
+        );
+
+        ticketType.setName(name);
+
+        ticketType.setDescription(
+                trimToNull(request.description())
+        );
+
+        ticketType.setPrice(
+                request.price()
+        );
+
+        ticketType.setCurrency(
+                request.currency()
+                        .trim()
+                        .toUpperCase(Locale.ROOT)
+        );
+
+        ticketType.setCapacity(
+                request.capacity()
+        );
+
+        ticketType.setMaxPerOrder(
+                request.maxPerOrder()
+        );
+
+        ticketType.setSalesStartAt(
+                request.salesStartAt()
+        );
+
+        ticketType.setSalesEndAt(
+                request.salesEndAt()
+        );
+
+        ticketType.setActive(
+                request.active()
+        );
+
+        return toResponse(ticketType);
+    }
+
     @Transactional(readOnly = true)
     public List<TicketTypeResponse> getAdminTicketTypes(
             UUID eventId
@@ -104,9 +205,7 @@ public class TicketTypeService {
         Event event = findEvent(eventId);
 
         return ticketTypeRepository
-                .findAllByEventOrderByPriceAsc(
-                        event
-                )
+                .findAllByEventOrderByPriceAsc(event)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -151,15 +250,41 @@ public class TicketTypeService {
                 );
     }
 
+    private void validateCapacityReduction(
+            UUID ticketTypeId,
+            int requestedCapacity
+    ) {
+
+        long reservedAndConfirmed =
+                reservationItemRepository
+                        .sumReservedAndConfirmedQuantity(
+                                ticketTypeId,
+                                ReservationStatus.ACTIVE,
+                                ReservationStatus.CONFIRMED,
+                                OffsetDateTime.now()
+                        );
+
+        if (requestedCapacity
+                < reservedAndConfirmed) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Capacity cannot be lower than the reserved and sold quantity"
+            );
+        }
+    }
+
     private void validateSalesWindow(
-            java.time.OffsetDateTime salesStartAt,
-            java.time.OffsetDateTime salesEndAt,
+            OffsetDateTime salesStartAt,
+            OffsetDateTime salesEndAt,
             Event event
     ) {
 
         if (salesStartAt != null
                 && salesEndAt != null
-                && !salesEndAt.isAfter(salesStartAt)) {
+                && !salesEndAt.isAfter(
+                salesStartAt
+        )) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
