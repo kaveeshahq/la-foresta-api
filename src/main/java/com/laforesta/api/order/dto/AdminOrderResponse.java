@@ -13,6 +13,8 @@ public record AdminOrderResponse(
 
         UUID userId,
         String customerEmail,
+        String customerName,
+        boolean guest,
 
         UUID reservationId,
 

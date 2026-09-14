@@ -1,11 +1,16 @@
 package com.laforesta.api.order.service;
 
-import com.laforesta.api.order.dto.*;
+import com.laforesta.api.order.dto.AdminOrderResponse;
+import com.laforesta.api.order.dto.AdminPaymentResponse;
+import com.laforesta.api.order.dto.AdminRefundResponse;
+import com.laforesta.api.order.dto.AdminTicketResponse;
+import com.laforesta.api.order.dto.OrderItemResponse;
 import com.laforesta.api.order.entity.Order;
 import com.laforesta.api.order.repository.OrderRepository;
 import com.laforesta.api.payment.repository.PaymentTransactionRepository;
 import com.laforesta.api.refund.repository.RefundTransactionRepository;
 import com.laforesta.api.ticket.repository.TicketRepository;
+import com.laforesta.api.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,8 +24,13 @@ import java.util.UUID;
 public class AdminOrderService {
 
     private final OrderRepository orderRepository;
-    private final PaymentTransactionRepository paymentTransactionRepository;
-    private final RefundTransactionRepository refundTransactionRepository;
+
+    private final PaymentTransactionRepository
+            paymentTransactionRepository;
+
+    private final RefundTransactionRepository
+            refundTransactionRepository;
+
     private final TicketRepository ticketRepository;
 
     @Transactional(readOnly = true)
@@ -105,11 +115,29 @@ public class AdminOrderService {
                         )
                         .toList();
 
+        User user = order.getUser();
+        boolean guest = user == null;
+
+        String customerEmail =
+                guest
+                        ? order.getGuestEmail()
+                        : user.getEmail();
+
+        String customerName =
+                guest
+                        ? order.getGuestName()
+                        : user.getFullName();
+
         return new AdminOrderResponse(
                 order.getId(),
 
-                order.getUser().getId(),
-                order.getUser().getEmail(),
+                guest
+                        ? null
+                        : user.getId(),
+
+                customerEmail,
+                customerName,
+                guest,
 
                 order.getReservation().getId(),
 

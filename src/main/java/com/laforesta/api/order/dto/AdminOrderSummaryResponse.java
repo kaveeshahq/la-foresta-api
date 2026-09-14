@@ -9,9 +9,11 @@ import java.util.UUID;
 public record AdminOrderSummaryResponse(
 
         UUID orderId,
+
         UUID userId,
         String customerEmail,
         String customerName,
+        boolean guest,
 
         OrderStatus status,
 

@@ -3,8 +3,11 @@ package com.laforesta.api.order.repository;
 import com.laforesta.api.order.entity.Order;
 import com.laforesta.api.order.model.OrderStatus;
 import com.laforesta.api.ticket.entity.TicketReservation;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,8 +45,21 @@ public interface OrderRepository
             UUID userId
     );
 
-    List<Order> findAllByUserEmailIgnoreCaseOrderByCreatedAtDesc(
+    List<Order>
+    findAllByUserEmailIgnoreCaseOrderByCreatedAtDesc(
             String email
+    );
+
+    @Query("""
+           SELECT purchaseOrder
+           FROM Order purchaseOrder
+           LEFT JOIN purchaseOrder.user registeredUser
+           WHERE LOWER(registeredUser.email) = LOWER(:email)
+              OR LOWER(purchaseOrder.guestEmail) = LOWER(:email)
+           ORDER BY purchaseOrder.createdAt DESC
+           """)
+    List<Order> findAllByCustomerEmail(
+            @Param("email") String email
     );
 
     long countByPromoCodeIdAndStatus(

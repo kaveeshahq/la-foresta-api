@@ -26,7 +26,8 @@ public class AdminSearchService {
     private final TicketRepository ticketRepository;
 
     @Transactional(readOnly = true)
-    public List<AdminOrderSummaryResponse> findOrdersByEmail(
+    public List<AdminOrderSummaryResponse>
+    findOrdersByEmail(
             String email
     ) {
 
@@ -39,7 +40,7 @@ public class AdminSearchService {
         }
 
         return orderRepository
-                .findAllByUserEmailIgnoreCaseOrderByCreatedAtDesc(
+                .findAllByCustomerEmail(
                         email.trim()
                 )
                 .stream()
@@ -146,12 +147,29 @@ public class AdminSearchService {
             Order order
     ) {
 
+        User user = order.getUser();
+        boolean guest = user == null;
+
+        String customerEmail =
+                guest
+                        ? order.getGuestEmail()
+                        : user.getEmail();
+
+        String customerName =
+                guest
+                        ? order.getGuestName()
+                        : user.getFullName();
+
         return new AdminOrderSummaryResponse(
                 order.getId(),
 
-                order.getUser().getId(),
-                order.getUser().getEmail(),
-                order.getUser().getFullName(),
+                guest
+                        ? null
+                        : user.getId(),
+
+                customerEmail,
+                customerName,
+                guest,
 
                 order.getStatus(),
 
