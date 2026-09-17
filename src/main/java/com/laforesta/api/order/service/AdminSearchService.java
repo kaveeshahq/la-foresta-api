@@ -108,13 +108,14 @@ public class AdminSearchService {
                 );
 
         User user = ticket.getUser();
+        Order order = ticket.getOrder();
 
         return new AdminTicketLookupResponse(
                 ticket.getId(),
                 ticket.getTicketNumber(),
                 ticket.getStatus(),
 
-                ticket.getOrder().getId(),
+                order.getId(),
 
                 user != null
                         ? user.getId()
@@ -122,11 +123,11 @@ public class AdminSearchService {
 
                 user != null
                         ? user.getEmail()
-                        : null,
+                        : order.getGuestEmail(),
 
                 user != null
                         ? user.getFullName()
-                        : null,
+                        : order.getGuestName(),
 
                 ticket.getTicketType().getId(),
                 ticket.getTicketType().getName(),
