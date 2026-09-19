@@ -26,6 +26,18 @@ public record UpdateEventRequest(
 
         String description,
 
+        @Size(
+                max = 2048,
+                message = "Card image URL is too long"
+        )
+        String cardImageUrl,
+
+        @Size(
+                max = 2048,
+                message = "Hero image URL is too long"
+        )
+        String heroImageUrl,
+
         @NotNull(message = "Event start time is required")
         OffsetDateTime startsAt,
 
@@ -35,7 +47,10 @@ public record UpdateEventRequest(
 
         OffsetDateTime salesEndAt,
 
-        @Min(value = 0, message = "Minimum age cannot be negative")
+        @Min(
+                value = 0,
+                message = "Minimum age cannot be negative"
+        )
         Integer minimumAge
 
 ) {

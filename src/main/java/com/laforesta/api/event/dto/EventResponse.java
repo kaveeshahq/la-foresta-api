@@ -8,18 +8,29 @@ import java.util.UUID;
 public record EventResponse(
 
         UUID id,
+
         UUID venueId,
         String venueName,
+
         String title,
         String slug,
+
         String shortDescription,
         String description,
+
+        String cardImageUrl,
+        String heroImageUrl,
+
         EventStatus status,
+
         OffsetDateTime startsAt,
         OffsetDateTime endsAt,
+
         OffsetDateTime salesStartAt,
         OffsetDateTime salesEndAt,
+
         int minimumAge,
+
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 
