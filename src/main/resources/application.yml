@@ -1,6 +1,7 @@
 spring:
   config:
     import: optional:file:.env[.properties]
+
   application:
     name: laforesta-api
 
@@ -25,6 +26,8 @@ spring:
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_APP_PASSWORD}
+    default-encoding: UTF-8
+    test-connection: false
     properties:
       mail:
         smtp:
@@ -32,6 +35,9 @@ spring:
           starttls:
             enable: true
             required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
   web:
     error:
@@ -57,3 +63,6 @@ app:
 
   mail:
     from: ${MAIL_USERNAME}
+    retry:
+      max-attempts: ${MAIL_RETRY_MAX_ATTEMPTS:3}
+      initial-delay-ms: ${MAIL_RETRY_DELAY_MS:1000}

@@ -8,7 +8,8 @@ import com.laforesta.api.auth.dto.RegisterRequest;
 import com.laforesta.api.auth.dto.RegisterResponse;
 import com.laforesta.api.auth.dto.ResendVerificationRequest;
 import com.laforesta.api.auth.dto.ResetPasswordRequest;
-import com.laforesta.api.notification.service.EmailService;
+import com.laforesta.api.notification.event.EmailVerificationRequestedEvent;
+import com.laforesta.api.notification.event.PasswordResetRequestedEvent;
 import com.laforesta.api.user.entity.Role;
 import com.laforesta.api.user.entity.User;
 import com.laforesta.api.user.model.AccountStatus;
@@ -16,6 +17,7 @@ import com.laforesta.api.user.model.RoleName;
 import com.laforesta.api.user.repository.RoleRepository;
 import com.laforesta.api.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,51 +37,72 @@ public class AuthService {
     private final JwtService jwtService;
     private final EmailVerificationService emailVerificationService;
     private final PasswordResetService passwordResetService;
-    private final EmailService emailService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(
+            RegisterRequest request
+    ) {
 
         String email = request.email()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
-        String fullName = request.fullName().trim();
+        String fullName =
+                request.fullName().trim();
 
-        if (userRepository.existsByEmailIgnoreCase(email)) {
+        if (userRepository
+                .existsByEmailIgnoreCase(email)) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "An account with this email already exists"
             );
         }
 
-        Role customerRole = roleRepository
-                .findByName(RoleName.CUSTOMER)
-                .orElseThrow(() -> new IllegalStateException(
-                        "CUSTOMER role is not configured"
-                ));
+        Role customerRole =
+                roleRepository
+                        .findByName(RoleName.CUSTOMER)
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "CUSTOMER role is not configured"
+                                )
+                        );
 
         User user = new User();
 
         user.setEmail(email);
         user.setFullName(fullName);
+
         user.setPasswordHash(
-                passwordEncoder.encode(request.password())
+                passwordEncoder.encode(
+                        request.password()
+                )
         );
+
         user.setEmailVerified(false);
-        user.setAccountStatus(AccountStatus.ACTIVE);
+
+        user.setAccountStatus(
+                AccountStatus.ACTIVE
+        );
+
         user.getRoles().add(customerRole);
 
-        User savedUser = userRepository.save(user);
+        User savedUser =
+                userRepository.save(user);
 
         String verificationToken =
                 emailVerificationService
-                        .createVerificationToken(savedUser);
+                        .createVerificationToken(
+                                savedUser
+                        );
 
-        emailService.sendEmailVerification(
-                savedUser.getEmail(),
-                savedUser.getFullName(),
-                verificationToken
+        eventPublisher.publishEvent(
+                new EmailVerificationRequestedEvent(
+                        savedUser.getEmail(),
+                        savedUser.getFullName(),
+                        verificationToken
+                )
         );
 
         return new RegisterResponse(
@@ -91,18 +114,23 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthTokensResponse login(LoginRequest request) {
+    public AuthTokensResponse login(
+            LoginRequest request
+    ) {
 
         String email = request.email()
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
-        User user = userRepository
-                .findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED,
-                        "Invalid email or password"
-                ));
+        User user =
+                userRepository
+                        .findByEmailIgnoreCase(email)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Invalid email or password"
+                                )
+                        );
 
         if (user.getPasswordHash() == null) {
             throw new ResponseStatusException(
@@ -115,13 +143,16 @@ public class AuthService {
                 request.password(),
                 user.getPasswordHash()
         )) {
+
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Invalid email or password"
             );
         }
 
-        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
+        if (user.getAccountStatus()
+                != AccountStatus.ACTIVE) {
+
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "This account is not active"
@@ -132,7 +163,8 @@ public class AuthService {
                 jwtService.generateAccessToken(user);
 
         String refreshToken =
-                refreshTokenService.createRefreshToken(user);
+                refreshTokenService
+                        .createRefreshToken(user);
 
         return new AuthTokensResponse(
                 accessToken,
@@ -151,21 +183,26 @@ public class AuthService {
                 .trim()
                 .toLowerCase(Locale.ROOT);
 
-        User user = userRepository
-                .findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Account not found"
-                ));
+        User user =
+                userRepository
+                        .findByEmailIgnoreCase(email)
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Account not found"
+                                )
+                        );
 
         String verificationToken =
                 emailVerificationService
                         .resendVerificationToken(user);
 
-        emailService.sendEmailVerification(
-                user.getEmail(),
-                user.getFullName(),
-                verificationToken
+        eventPublisher.publishEvent(
+                new EmailVerificationRequestedEvent(
+                        user.getEmail(),
+                        user.getFullName(),
+                        verificationToken
+                )
         );
     }
 
@@ -190,10 +227,12 @@ public class AuthService {
                             passwordResetService
                                     .createResetToken(user);
 
-                    emailService.sendPasswordReset(
-                            user.getEmail(),
-                            user.getFullName(),
-                            resetToken
+                    eventPublisher.publishEvent(
+                            new PasswordResetRequestedEvent(
+                                    user.getEmail(),
+                                    user.getFullName(),
+                                    resetToken
+                            )
                     );
                 });
     }
@@ -205,7 +244,9 @@ public class AuthService {
 
         User user =
                 passwordResetService
-                        .validateAndConsume(request.token());
+                        .validateAndConsume(
+                                request.token()
+                        );
 
         user.setPasswordHash(
                 passwordEncoder.encode(
@@ -222,14 +263,19 @@ public class AuthService {
             RefreshTokenRequest request
     ) {
 
-        User user = refreshTokenService
-                .validateAndRotate(request.refreshToken());
+        User user =
+                refreshTokenService
+                        .validateAndRotate(
+                                request.refreshToken()
+                        );
 
         String newAccessToken =
-                jwtService.generateAccessToken(user);
+                jwtService
+                        .generateAccessToken(user);
 
         String newRefreshToken =
-                refreshTokenService.createRefreshToken(user);
+                refreshTokenService
+                        .createRefreshToken(user);
 
         return new AuthTokensResponse(
                 newAccessToken,
